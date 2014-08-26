@@ -8,18 +8,27 @@
 #include "crawler.hpp"
 
 #define TIMEOUT 1
-#define BASE_MAX 2
+#define BASE_MAX 1
+
+
+boost::regex baseUrlPattern("(https?://[^/]*)/.*", boost::regex::icase);
+boost::regex doctypePattern(".*DOCTYPE.*", boost::regex::icase);
+boost::regex filePattern("(https?://[^\\?]*)(\\?{0,1}).*", boost::regex::icase);
+boost::regex folderPattern("(https?://[^/]*)/.*", boost::regex::icase);
+boost::regex javascriptPattern(".*/javascript:.*", boost::regex::icase);
+boost::regex ignoreTypePattern(".*\\.(png|bmp|css|js|gif|jpg|jpeg|svg|zip|exe|gz|tar|bz2|rar|avi|mp4|mp3|wmv|wma|acc|flac|iso|7z|od.|pdf|docx?|pptx?|csvx?|vbs?)$", boost::regex::icase);
+boost::regex linkPattern("(?:href|src|link)[[:space:]]*=[[:space:]]*(?:\\\"(.*?)\\\"|\\'(.*?)\\')", boost::regex::icase);
 
 void crawler::parsePage(std::string url) {
     std::string content;
 
 
     boost::match_results<std::string::const_iterator> res;
-    boost::regex_search(url, res, boost::regex("(https?://[^/]*)/.*", boost::regex::icase));
+    boost::regex_search(url, res, baseUrlPattern);
     std::string baseUrl = res[1];
 
     visitedLock.lock();
-    std::cout << "\r                                                           \r" << pageQueue.size() << "  " << connErrors << "e   " << std::flush;
+    std::cout << "\r                                                           \r" << pageQueue.size() << "  " << connErrors << "e   " << pageQueue.size() / (float) pageCounter << std::flush;
 #ifdef BASE_MAX
     int count = visited.count(baseUrl);
     if (count >= BASE_MAX) {
@@ -35,14 +44,14 @@ void crawler::parsePage(std::string url) {
     if (!readPage(url, content))
         return;
 
-    if (!boost::regex_match(content, boost::regex(".*DOCTYPE.*", boost::regex::icase)))
+    if (!boost::regex_match(content, doctypePattern))
         return;
 
-    boost::regex_search(url, res, boost::regex("(https?://[^/]*)/.*", boost::regex::icase));
+    boost::regex_search(url, res, baseUrlPattern);
     baseUrl = res[1];
-    boost::regex_search(url, res, boost::regex("(https?://[^\\?]*)(\\?{0,1}).*", boost::regex::icase));
+    boost::regex_search(url, res, filePattern);
     std::string fileUrl = res[1];
-    boost::regex_search(url, res, boost::regex("(https?://.*/)[^/]*", boost::regex::icase));
+    boost::regex_search(url, res, folderPattern);
     std::string folderUrl = res[1];
 
     visitedLock.lock();
@@ -62,7 +71,7 @@ void crawler::parsePage(std::string url) {
 
     visitedLock.unlock();
 
-    boost::sregex_iterator hrefIt(content.begin(), content.end(), boost::regex("(?:href|src|link)[[:space:]]*=[[:space:]]*(?:\\\"(.*?)\\\"|\\'(.*?)\\')", boost::regex::icase));
+    boost::sregex_iterator hrefIt(content.begin(), content.end(), linkPattern);
 
     std::for_each(hrefIt, boost::sregex_iterator(), [this, baseUrl, fileUrl, folderUrl](const boost::match_results<std::string::const_iterator>& what) {
         std::string link = what[1];
@@ -77,21 +86,25 @@ void crawler::parsePage(std::string url) {
             link = folderUrl + link;
         }
 
-        if (boost::regex_match(link, boost::regex(".*/javascript:.*", boost::regex::icase))) {
+        if (boost::regex_match(link, javascriptPattern)) {
             return;
         }
 
-        if (boost::regex_match(link, boost::regex(".*\\.(png|bmp|css|js|gif|jpg|jpeg|svg|zip|exe|gz|tar|bz2|rar|avi|mp4|mp3|wmv|wma|acc|flac|iso|7z|od.|pdf|docx?|pptx?|csvx?|vbs?)$", boost::regex::icase))) {
+        if (boost::regex_match(link, ignoreTypePattern)) {
             return;
         }
 
-        visitedLock.lock();
+        boost::match_results<std::string::const_iterator> res;
+                boost::regex_search(link, res, baseUrlPattern);
+                std::string baseLink = res[1];
+
+                visitedLock.lock();
 #ifdef BASE_MAX
-                if (visited.count(baseUrl) < BASE_MAX) {
+                if (visited.count(baseLink) < BASE_MAX) {
 #else
-                if (!visited.count(url)) {
+                if (!visited.count(link)) {
 #endif
-            addPageToQueue(link);
+            addPageToQueue(baseLink);
         }
         visitedLock.unlock();
     });

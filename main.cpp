@@ -18,8 +18,8 @@ using namespace std;
 int main(int argc, char** argv) {
     crawler crawl;
     
-    crawl.addPageToQueue("google.com");
-    crawl.startWorkerThreads(10);
+    crawl.addPageToQueue("http://www.wikipedia.org");
+    crawl.startWorkerThreads(25);
     
     crawl.waitForFinish();
     
