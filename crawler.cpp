@@ -9,20 +9,24 @@
 
 #define TIMEOUT 60
 #define BASE_MAX 1
-//#define USE_BASE
+#define USE_BASE
 
 std::string lineOverride = "\r                                            \r";
 
-boost::regex baseUrlPattern("(https?://[^/]*)/.*", boost::regex::icase);
 boost::regex doctypePattern(".*DOCTYPE.*", boost::regex::icase);
-boost::regex filePattern("(https?://[^\\?]*)(\\?{0,1}).*", boost::regex::icase);
-boost::regex folderPattern("(https?://[^/]*)/.*", boost::regex::icase);
-boost::regex javascriptPattern(".*/javascript:.*", boost::regex::icase);
+boost::regex urlPattern("(((https?://[^/]*)/[^/]*)[^\\?]*)(?:\\?{0,1}).*", boost::regex::icase);
+boost::regex baseUrlPattern("(https?://[^/]*)/.*", boost::regex::icase);
+boost::regex filePattern("(https?://[^\\?]*)(?:\\?{0,1}).*", boost::regex::icase);
+boost::regex folderPattern("(https?://.*/)[^/]*", boost::regex::icase);
+boost::regex javascriptPattern("javascript:.*", boost::regex::icase);
 boost::regex ignoreTypePattern(".*\\.(png|bmp|css|js|gif|jpg|jpeg|svg|zip|exe|gz|tar|bz2|rar|avi|mp4|mp3|wmv|wma|acc|flac|iso|7z|od.|pdf|docx?|pptx?|csvx?|vbs?)$", boost::regex::icase);
 boost::regex linkPattern("(?:href|src|link)[[:space:]]*=[[:space:]]*(?:\\\"(.*?)\\\"|\\'(.*?)\\')", boost::regex::icase);
 boost::regex tldPattern("https?://[^/]*\\.([^\\./]*)/.*", boost::regex::icase);
+boost::regex ignoreTagsPattern("<(script|style).*?\\1>", boost::regex::icase);
+boost::regex tagPattern("</?.*?>", boost::regex::icase);
+boost::regex wordPattern("[^&]+", boost::regex::icase);
 
-void crawler::parsePage(std::string url) {
+void crawler::loadPage(std::string url) {
     std::string content;
 
 
@@ -47,22 +51,25 @@ void crawler::parsePage(std::string url) {
     if (!readPage(url, content))
         return;
 
+    addContentToQueue(url, content);
+}
+
+void crawler::analyzePage(std::string url, std::string content) {
     if (!boost::regex_match(content, doctypePattern))
         return;
 
-    boost::regex_search(url, res, baseUrlPattern);
-    baseUrl = res[1];
-    boost::regex_search(url, res, filePattern);
+    boost::match_results<std::string::const_iterator> res;
+    boost::regex_search(url, res, urlPattern);
+    std::string baseUrl = res[3];
+    std::string folderUrl = res[2];
     std::string fileUrl = res[1];
-    boost::regex_search(url, res, folderPattern);
-    std::string folderUrl = res[1];
 
     visitedLock.lock();
 #ifdef BASE_MAX
-    count = visited.count(baseUrl);
+    int count = visited.count(baseUrl);
     if (count >= BASE_MAX) {
 #else
-    count = visited.count(url);
+    int count = visited.count(url);
     if (count) {
 #endif
         visitedLock.unlock();
@@ -87,6 +94,15 @@ void crawler::parsePage(std::string url) {
 
     std::for_each(hrefIt, boost::sregex_iterator(), [this, baseUrl, fileUrl, folderUrl](const boost::match_results<std::string::const_iterator>& what) {
         std::string link = what[1];
+
+        if (boost::regex_match(link, javascriptPattern)) {
+            return;
+        }
+
+        if (link.substr(0, 1) == ".") {
+            link = "/" + link;
+        }
+
         if (link.substr(0, 7) == "http://" || link.substr(0, 8) == "https://") {
         } else if (link.substr(0, 2) == "//") {
             link = "http:" + link;
@@ -98,9 +114,6 @@ void crawler::parsePage(std::string url) {
             link = folderUrl + link;
         }
 
-        if (boost::regex_match(link, javascriptPattern)) {
-            return;
-        }
 
         if (boost::regex_match(link, ignoreTypePattern)) {
             return;
@@ -130,6 +143,16 @@ void crawler::parsePage(std::string url) {
         }
         visitedLock.unlock();
     });
+
+
+    content = boost::regex_replace(content, ignoreTagsPattern, "", boost::match_default | boost::format_all);
+    content = boost::regex_replace(content, tagPattern, "", boost::match_default | boost::format_all);
+
+    boost::sregex_token_iterator wordIt(content.begin(), content.end(), wordPattern, 0), wordItEnd;
+    while (wordIt != wordItEnd) {
+        std::string word = *wordIt++;
+        std::cout << word << std::endl;
+    }
 }
 
 bool crawler::readPage(std::string &url, std::string &pageData) {

@@ -34,85 +34,129 @@ private:
     std::multiset<std::string> visited;
     std::mutex visitedLock;
     std::queue<std::string> pageQueue;
-    std::mutex queueLock;
+    std::queue<std::pair<std::string, std::string>> contentQueue;
+    std::mutex pageQueueLock, contentQueueLock;
     std::atomic_bool running;
-    std::atomic<int> workingThreads, connErrors, pageCounter;
-    std::vector<std::thread> workers;
+    std::atomic<int> runningLoaders, runningAnalyzers, connErrors, pageCounter;
+    std::vector<std::thread> loaderWorkers, analyzeWorkers;
 
     curlpp::Cleanup myCleanup;
 
-    void parseNextPage() {
-        queueLock.lock();
-        if (pageQueue.empty()) {
-            queueLock.unlock();
-            if (workingThreads)
-                usleep(60000000);
-            else
-                running = false;
+    void loadNextPage() {
+        pageQueueLock.lock();
+        if (pageQueue.empty() || (contentQueue.size() > 100 * analyzeWorkers.size())) {
+            pageQueueLock.unlock();
+            usleep(1000000);
             return;
         }
         std::string url = pageQueue.front();
         pageQueue.pop();
-        queueLock.unlock();
-        
-        workingThreads++;
-        parsePage(url);
-        workingThreads--;
+
+        runningLoaders++;
+        pageQueueLock.unlock();
+
+        loadPage(url);
+        runningLoaders--;
     }
 
-    void parsePage(std::string url);
+    void analyzeNextPage() {
+        contentQueueLock.lock();
+        if (contentQueue.empty()) {
+            pageQueueLock.lock();
+            if (runningLoaders || runningAnalyzers || pageQueue.size()) {
+                contentQueueLock.unlock();
+                pageQueueLock.unlock();
+                usleep(1000000);
+            } else {
+                contentQueueLock.unlock();
+                pageQueueLock.unlock();
+                running = false;
+            }
+            return;
+        }
+        std::pair<std::string, std::string> ctn = contentQueue.front();
+        contentQueue.pop();
+
+        runningAnalyzers++;
+        contentQueueLock.unlock();
+
+        analyzePage(ctn.first, ctn.second);
+        runningAnalyzers--;
+    }
+
+    void loadPage(std::string url);
+    void analyzePage(std::string url, std::string content);
 
     bool readPage(std::string &url, std::string &pageData);
+
 public:
 
     crawler() {
         running = true;
-        workingThreads = 0;
         connErrors = 0;
         pageCounter = 0;
+        runningLoaders = 0;
+        runningAnalyzers = 0;
     }
-    
-    virtual ~crawler()
-    {
+
+    virtual ~crawler() {
         stopWorkerThreads();
     }
 
-    int worker() {
+    void pageLoader() {
         while (running) {
-            parseNextPage();
+            loadNextPage();
         }
-
-        return 0;
     }
 
-    void addPageToQueue(std::string url) {
-        queueLock.lock();
-        pageQueue.push(url);
-        queueLock.unlock();
+    void pageAnalyzer() {
+        while (running) {
+            analyzeNextPage();
+        }
     }
 
-    void startWorkerThreads(int count) {
+    void addPageToQueue(std::string url, bool force = false) {
+        pageQueueLock.lock();
+        if (force || (pageQueue.size() < 1000 * loaderWorkers.size()))
+            pageQueue.push(url);
+        pageQueueLock.unlock();
+    }
+
+    void addContentToQueue(std::string url, std::string content) {
+        contentQueueLock.lock();
+        contentQueue.push(std::make_pair(url, content));
+        contentQueueLock.unlock();
+    }
+
+    void startWorkerThreads(int loader, int analyzer) {
         running = true;
 
-        for (int i = 0; i < count; i++) {
-            workers.push_back(std::thread([this]() {
-                worker(); }));
+        for (int i = 0; i < loader; i++) {
+            loaderWorkers.push_back(std::thread([this]() {
+                pageLoader(); }));
+        }
+
+        for (int i = 0; i < analyzer; i++) {
+            analyzeWorkers.push_back(std::thread([this]() {
+                pageAnalyzer(); }));
         }
     }
 
     void stopWorkerThreads() {
         running = false;
 
-        for (auto &thread : workers)
+        for (auto &thread : loaderWorkers)
             thread.join();
 
-        workers.clear();
+        for (auto &thread : analyzeWorkers)
+            thread.join();
+
+        loaderWorkers.clear();
+        analyzeWorkers.clear();
     }
-    
-    void waitForFinish()
-    {
-        while(running)
-        {
+
+    void waitForFinish() {
+        while (running) {
             usleep(100000);
         }
     }
