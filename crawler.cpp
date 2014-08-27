@@ -24,7 +24,7 @@ boost::regex linkPattern("(?:href|src|link)[[:space:]]*=[[:space:]]*(?:\\\"(.*?)
 boost::regex tldPattern("https?://[^/]*\\.([^\\./]*)/.*", boost::regex::icase);
 boost::regex ignoreTagsPattern("<(script|style).*?\\1>", boost::regex::icase);
 boost::regex tagPattern("</?.*?>", boost::regex::icase);
-boost::regex wordPattern("[^&]+", boost::regex::icase);
+boost::regex wordPattern("(?:(?!&?n?b?s?p?;|&?a?m?p?;)[^[:space:][:punct:]]|(?:&(?!nbsp;|amp;)\\w{1,5};))+", boost::regex::icase);
 
 void crawler::loadPage(std::string url) {
     std::string content;
@@ -35,7 +35,7 @@ void crawler::loadPage(std::string url) {
     std::string baseUrl = res[1];
 
     visitedLock.lock();
-    std::cout << lineOverride << pageQueue.size() << "  " << connErrors << "e   " << pageQueue.size() / (float) pageCounter << std::flush;
+    std::cout << lineOverride << pageQueue.size() << "  " << connErrors << "e  " << dict.size() << "w  " << pageQueue.size() / (float) pageCounter << std::flush;
 #ifdef BASE_MAX
     int count = visited.count(baseUrl);
     if (count >= BASE_MAX) {
@@ -145,14 +145,22 @@ void crawler::analyzePage(std::string url, std::string content) {
     });
 
 
-    content = boost::regex_replace(content, ignoreTagsPattern, "", boost::match_default | boost::format_all);
-    content = boost::regex_replace(content, tagPattern, "", boost::match_default | boost::format_all);
+    content = boost::regex_replace(content, ignoreTagsPattern, " ", boost::match_default | boost::format_all);
+    content = boost::regex_replace(content, tagPattern, " ", boost::match_default | boost::format_all);
 
     boost::sregex_token_iterator wordIt(content.begin(), content.end(), wordPattern, 0), wordItEnd;
+    dictLock.lock();
     while (wordIt != wordItEnd) {
         std::string word = *wordIt++;
-        std::cout << word << std::endl;
+
+        auto it = dict.find(word);
+        if (it == dict.end()) {
+            dict.insert(std::make_pair(word, 1));
+        } else {
+            it->second++;
+        }
     }
+    dictLock.unlock();
 }
 
 bool crawler::readPage(std::string &url, std::string &pageData) {

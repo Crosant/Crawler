@@ -34,7 +34,7 @@ private:
     std::multiset<std::string> visited;
     std::queue<std::string> pageQueue;
     std::queue<std::pair<std::string, std::string>> contentQueue;
-    std::mutex visitedLock, pageQueueLock, contentQueueLock;
+    std::mutex visitedLock, pageQueueLock, contentQueueLock, dictLock;
     std::atomic_bool running;
     std::atomic<int> runningLoaders, runningAnalyzers, connErrors, pageCounter;
     std::vector<std::thread> loaderWorkers, analyzeWorkers;
