@@ -151,7 +151,13 @@ void crawler::analyzePage(std::string url, std::string content) {
     boost::sregex_token_iterator wordIt(content.begin(), content.end(), wordPattern, 0), wordItEnd;
     while (wordIt != wordItEnd) {
         std::string word = *wordIt++;
-        std::cout << word << std::endl;
+
+        auto it = dict.find(word);
+        if (it == dict.end()) {
+            dict.insert(std::make_pair(word, 1));
+        } else {
+            it->second++;
+        }
     }
 }
 
