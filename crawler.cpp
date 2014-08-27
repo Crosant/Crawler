@@ -145,8 +145,8 @@ void crawler::analyzePage(std::string url, std::string content) {
     });
 
 
-    content = boost::regex_replace(content, ignoreTagsPattern, "", boost::match_default | boost::format_all);
-    content = boost::regex_replace(content, tagPattern, "", boost::match_default | boost::format_all);
+    content = boost::regex_replace(content, ignoreTagsPattern, " ", boost::match_default | boost::format_all);
+    content = boost::regex_replace(content, tagPattern, " ", boost::match_default | boost::format_all);
 
     boost::sregex_token_iterator wordIt(content.begin(), content.end(), wordPattern, 0), wordItEnd;
     while (wordIt != wordItEnd) {
