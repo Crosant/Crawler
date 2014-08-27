@@ -35,7 +35,7 @@ void crawler::loadPage(std::string url) {
     std::string baseUrl = res[1];
 
     visitedLock.lock();
-    std::cout << lineOverride << pageQueue.size() << "  " << connErrors << "e   " << pageQueue.size() / (float) pageCounter << std::flush;
+    std::cout << lineOverride << pageQueue.size() << "  " << connErrors << "e  " << dict.size() << "w  " << pageQueue.size() / (float) pageCounter << std::flush;
 #ifdef BASE_MAX
     int count = visited.count(baseUrl);
     if (count >= BASE_MAX) {
