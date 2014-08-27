@@ -149,6 +149,7 @@ void crawler::analyzePage(std::string url, std::string content) {
     content = boost::regex_replace(content, tagPattern, " ", boost::match_default | boost::format_all);
 
     boost::sregex_token_iterator wordIt(content.begin(), content.end(), wordPattern, 0), wordItEnd;
+    dictLock.lock();
     while (wordIt != wordItEnd) {
         std::string word = *wordIt++;
 
@@ -159,6 +160,7 @@ void crawler::analyzePage(std::string url, std::string content) {
             it->second++;
         }
     }
+    dictLock.unlock();
 }
 
 bool crawler::readPage(std::string &url, std::string &pageData) {

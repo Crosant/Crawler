@@ -35,7 +35,7 @@ private:
     std::mutex visitedLock;
     std::queue<std::string> pageQueue;
     std::queue<std::pair<std::string, std::string>> contentQueue;
-    std::mutex pageQueueLock, contentQueueLock;
+    std::mutex pageQueueLock, contentQueueLock, dictLock;
     std::atomic_bool running;
     std::atomic<int> runningLoaders, runningAnalyzers, connErrors, pageCounter;
     std::vector<std::thread> loaderWorkers, analyzeWorkers;
