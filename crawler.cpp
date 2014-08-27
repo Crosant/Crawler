@@ -7,9 +7,11 @@
 
 #include "crawler.hpp"
 
-#define TIMEOUT 1
+#define TIMEOUT 60
 #define BASE_MAX 1
+//#define USE_BASE
 
+std::string lineOverride = "\r                                            \r";
 
 boost::regex baseUrlPattern("(https?://[^/]*)/.*", boost::regex::icase);
 boost::regex doctypePattern(".*DOCTYPE.*", boost::regex::icase);
@@ -18,6 +20,7 @@ boost::regex folderPattern("(https?://[^/]*)/.*", boost::regex::icase);
 boost::regex javascriptPattern(".*/javascript:.*", boost::regex::icase);
 boost::regex ignoreTypePattern(".*\\.(png|bmp|css|js|gif|jpg|jpeg|svg|zip|exe|gz|tar|bz2|rar|avi|mp4|mp3|wmv|wma|acc|flac|iso|7z|od.|pdf|docx?|pptx?|csvx?|vbs?)$", boost::regex::icase);
 boost::regex linkPattern("(?:href|src|link)[[:space:]]*=[[:space:]]*(?:\\\"(.*?)\\\"|\\'(.*?)\\')", boost::regex::icase);
+boost::regex tldPattern("https?://[^/]*\\.([^\\./]*)/.*", boost::regex::icase);
 
 void crawler::parsePage(std::string url) {
     std::string content;
@@ -28,7 +31,7 @@ void crawler::parsePage(std::string url) {
     std::string baseUrl = res[1];
 
     visitedLock.lock();
-    std::cout << "\r                                                           \r" << pageQueue.size() << "  " << connErrors << "e   " << pageQueue.size() / (float) pageCounter << std::flush;
+    std::cout << lineOverride << pageQueue.size() << "  " << connErrors << "e   " << pageQueue.size() / (float) pageCounter << std::flush;
 #ifdef BASE_MAX
     int count = visited.count(baseUrl);
     if (count >= BASE_MAX) {
@@ -65,9 +68,18 @@ void crawler::parsePage(std::string url) {
         visitedLock.unlock();
         return;
     } else if (!count) {
-        std::cout << "\r" << ++pageCounter << "   " << baseUrl << std::endl;
+#ifdef USE_BASE
+        std::cout << lineOverride << ++pageCounter << "   " << baseUrl << "   " << std::endl;
+#else
+        std::cout << lineOverride << ++pageCounter << "   " << url << "   " << std::endl;
+#endif
     }
+
+#ifdef BASE_MAX
     visited.insert(baseUrl);
+#else
+    visited.insert(url);
+#endif
 
     visitedLock.unlock();
 
@@ -95,7 +107,13 @@ void crawler::parsePage(std::string url) {
         }
 
         boost::match_results<std::string::const_iterator> res;
-                boost::regex_search(link, res, baseUrlPattern);
+                boost::regex_search(link, res, tldPattern);
+        if (res[1] != "de") {
+            return;
+        }
+
+
+        boost::regex_search(link, res, baseUrlPattern);
                 std::string baseLink = res[1];
 
                 visitedLock.lock();
@@ -104,7 +122,11 @@ void crawler::parsePage(std::string url) {
 #else
                 if (!visited.count(link)) {
 #endif
+#ifdef USE_BASE
             addPageToQueue(baseLink);
+#else
+            addPageToQueue(link);
+#endif
         }
         visitedLock.unlock();
     });

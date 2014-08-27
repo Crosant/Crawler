@@ -46,7 +46,7 @@ private:
         if (pageQueue.empty()) {
             queueLock.unlock();
             if (workingThreads)
-                usleep(10000);
+                usleep(60000000);
             else
                 running = false;
             return;
