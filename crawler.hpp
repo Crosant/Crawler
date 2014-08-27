@@ -32,10 +32,9 @@ class crawler {
 private:
     std::map<std::string, int> dict;
     std::multiset<std::string> visited;
-    std::mutex visitedLock;
     std::queue<std::string> pageQueue;
     std::queue<std::pair<std::string, std::string>> contentQueue;
-    std::mutex pageQueueLock, contentQueueLock;
+    std::mutex visitedLock, pageQueueLock, contentQueueLock;
     std::atomic_bool running;
     std::atomic<int> runningLoaders, runningAnalyzers, connErrors, pageCounter;
     std::vector<std::thread> loaderWorkers, analyzeWorkers;
