@@ -24,7 +24,8 @@ boost::regex linkPattern("(?:href|src|link)[[:space:]]*=[[:space:]]*(?:\\\"(.*?)
 boost::regex tldPattern("https?://[^/]*\\.([^\\./]*)/.*", boost::regex::icase);
 boost::regex ignoreTagsPattern("<(script|style).*?\\1>", boost::regex::icase);
 boost::regex tagPattern("</?.*?>", boost::regex::icase);
-boost::regex wordPattern("(?:(?!&?n?b?s?p?;)[^[:space:][:punct:]]|(?:&(?!nbsp;)\\w{1,5};))+", boost::regex::icase);
+boost::regex wordPattern("(?:(?!&?n?b?s?p?;|&?a?m?p?;)[^[:space:][:punct:]]|(?:&(?!nbsp;|amp;)\\w{1,5};))+", 
+boost::regex::icase);
 
 void crawler::loadPage(std::string url) {
     std::string content;
