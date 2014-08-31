@@ -28,6 +28,8 @@
 
 #include <boost/regex.hpp>
 
+#include "settings.hpp"
+
 class crawler {
 private:
     std::map<std::string, int> dict;

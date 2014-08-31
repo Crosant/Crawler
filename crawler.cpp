@@ -7,9 +7,13 @@
 
 #include "crawler.hpp"
 
-#define TIMEOUT 60
-#define BASE_MAX 1
-#define USE_BASE
+#if defined(REQUIRE_TLD) && defined(REQUIRE_URL)
+#error cannot use REQUIRE_TLD and REQUIRE_URL at once
+#endif
+
+#if defined(REQUIRE_URL) && (defined(USE_BASE) || defined(BASE_MAX))
+#error cannot use REQUIRE_URL and USE_BASE/BASE_MAX
+#endif
 
 std::string lineOverride = "\r                                            \r";
 
@@ -119,11 +123,22 @@ void crawler::analyzePage(std::string url, std::string content) {
             return;
         }
 
+
         boost::match_results<std::string::const_iterator> res;
+
+#ifdef REQUIRE_TLD
                 boost::regex_search(link, res, tldPattern);
-        if (res[1] != "de") {
+        if (res[1] != REQUIRE_TLD) {
             return;
         }
+#endif
+
+#ifdef REQUIRE_URL
+    	boost::regex_search(link, res, baseUrlPattern);
+    	if(res[1] != REQUIRE_URL) {
+            return;
+        }
+#endif
 
 
         boost::regex_search(link, res, baseUrlPattern);
