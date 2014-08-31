@@ -7,6 +7,8 @@
 #define START_WORKER_LOADER 1
 #define START_WORKER_ANALYZER 1
 
+#define INTERUPT_STATS 10
+
 //#define BASE_MAX 1
 //#define URL_BASE
 #define REQUIRE_URL "http://de.wikipedia.org"

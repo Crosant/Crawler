@@ -104,6 +104,24 @@ public:
         stopWorkerThreads();
     }
 
+    void printInteruptStats()
+    {
+#ifdef INTERUPT_STATS
+        auto cmp = [](const std::pair<std::string, int> &a, const std::pair<std::string, int> &b) { return a.second < b.second; };
+        std::priority_queue<std::pair<std::string, int>, std::vector<std::pair<std::string, int>>, decltype(cmp)> vDict(dict.begin(), dict.end(), cmp);
+
+        std::cout << std::endl;
+        std::cout << "interupt statistics" << std::endl;
+        std::cout << "-------------------------" << std::endl;
+
+        for(int i = 0; i < INTERUPT_STATS && !vDict.empty(); ++i)
+        {
+            std::cout << (i + 1) << ". most common word: " << vDict.top().first << "(" << vDict.top().second << ")" << std::endl;
+            vDict.pop();
+        }
+#endif
+    }
+
     void pageLoader() {
         while (running) {
             loadNextPage();
